@@ -172,7 +172,7 @@ const styles = {
   navItemActive: {
     color: '#4ade80',
     background: 'rgba(34,197,94,0.08)',
-    borderColor: 'rgba(34,197,94,0.2)',
+    border: '1px solid rgba(34,197,94,0.2)',
     boxShadow: '0 0 12px rgba(34,197,94,0.08)',
   },
   sidebarFooter: {

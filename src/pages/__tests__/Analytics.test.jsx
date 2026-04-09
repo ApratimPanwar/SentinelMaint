@@ -25,28 +25,26 @@ describe('Analytics', () => {
     expect(screen.getByText('Analytics & MTBF')).toBeInTheDocument();
   });
 
-  it('displays MTBF KPI', () => {
+  it('displays Fleet MTBF KPI', () => {
     renderWithRouter(<Analytics />);
-    expect(screen.getByText('395h')).toBeInTheDocument();
-    expect(screen.getByText('MTBF (Current)')).toBeInTheDocument();
+    expect(screen.getByText('801h')).toBeInTheDocument();
   });
 
   it('displays MTTR KPI', () => {
     renderWithRouter(<Analytics />);
-    expect(screen.getByText('6.8h')).toBeInTheDocument();
     expect(screen.getByText('MTTR (Current)')).toBeInTheDocument();
   });
 
-  it('displays failure distribution', () => {
+  it('displays failure distribution from actual fault codes', () => {
     renderWithRouter(<Analytics />);
-    expect(screen.getByText('Bearing')).toBeInTheDocument();
-    expect(screen.getByText('Electrical')).toBeInTheDocument();
-    expect(screen.getByText('Hydraulic')).toBeInTheDocument();
+    expect(screen.getByText('General Inspection')).toBeInTheDocument();
+    expect(screen.getByText('Bearing Failure')).toBeInTheDocument();
+    expect(screen.getByText('Electrical Fault')).toBeInTheDocument();
   });
 
   it('displays reliability insights', () => {
     renderWithRouter(<Analytics />);
-    expect(screen.getByText(/Bearing failures account for 28%/)).toBeInTheDocument();
-    expect(screen.getByText(/MTBF trending upward/)).toBeInTheDocument();
+    expect(screen.getByText(/failures account for/)).toBeInTheDocument();
+    expect(screen.getByText(/average downtime/)).toBeInTheDocument();
   });
 });

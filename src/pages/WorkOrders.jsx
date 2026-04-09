@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ClipboardList, Send, AlertCircle, CheckCircle2, RotateCcw,
+  XCircle, Wrench, Activity,
 } from 'lucide-react';
-import { machines, faultCodes, technicians } from '../data/mockData';
+import { machines, faultCodes, technicians, maintenanceHistory } from '../data/mockData';
 import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
+import StatusBadge from '../components/StatusBadge';
+
+const STORAGE_KEY = 'sentinelMaint_workOrders';
 
 const initialForm = {
   machineId: '',
@@ -29,6 +33,41 @@ function validate(form) {
     errors.description = 'Description must be at least 10 characters';
   }
   return errors;
+}
+
+function loadSavedOrders() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveToDisk(orders) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  } catch { /* quota exceeded — silent */ }
+}
+
+// Seed from mockData: grab in-progress entries and normalize shape
+function seedFromHistory() {
+  return maintenanceHistory
+    .filter(h => h.status === 'in-progress')
+    .map(h => ({
+      id: h.workOrderId,
+      machineId: h.machineId,
+      machineName: h.machineName,
+      faultCode: h.faultCode,
+      faultDesc: faultCodes.find(f => f.code === h.faultCode)?.description || '',
+      technician: h.technician,
+      priority: 'medium',
+      estimatedDowntime: h.downtime ?? '—',
+      description: h.notes || '',
+      status: h.status,
+      timestamp: new Date(h.dateOpened).toISOString(),
+      source: 'history',
+    }));
 }
 
 function SelectField({ label, value, onChange, options, error, placeholder }) {
@@ -62,11 +101,59 @@ function InputField({ label, value, onChange, error, placeholder, type = 'text' 
   );
 }
 
+const statusColor = {
+  open: { bg: '#3b82f620', border: '#3b82f650', text: '#60a5fa' },
+  'in-progress': { bg: '#6366f120', border: '#6366f150', text: '#818cf8' },
+  completed: { bg: '#22c55e20', border: '#22c55e50', text: '#4ade80' },
+  cancelled: { bg: '#ef444420', border: '#ef444450', text: '#f87171' },
+};
+
+function WOStatusBadge({ status }) {
+  const c = statusColor[status] || statusColor.open;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      padding: '3px 8px', borderRadius: 4, fontSize: 10,
+      fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
+      textTransform: 'uppercase', letterSpacing: 0.8,
+      color: c.text, background: c.bg, border: `1px solid ${c.border}`,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.text }} />
+      {status}
+    </span>
+  );
+}
+
+function priorityColor(p) {
+  if (p === 'critical') return '#ef4444';
+  if (p === 'high') return '#f59e0b';
+  return '#22c55e';
+}
+
 export default function WorkOrders() {
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState([]);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [toast, setToast] = useState(null);
+
+  // On mount: merge seeded history orders with localStorage orders
+  useEffect(() => {
+    const saved = loadSavedOrders();
+    const seeded = seedFromHistory();
+    // Merge: seeded first (avoid duplicates if user hasn't touched them)
+    const savedIds = new Set(saved.map(o => o.id));
+    const merged = [
+      ...seeded.filter(s => !savedIds.has(s.id)),
+      ...saved,
+    ];
+    setOrders(merged);
+  }, []);
+
+  // Persist to localStorage whenever orders change (skip initial empty render)
+  const persist = useCallback((next) => {
+    setOrders(next);
+    saveToDisk(next);
+  }, []);
 
   const set = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
@@ -82,8 +169,8 @@ export default function WorkOrders() {
     const tech = technicians.find(t => t.id === form.technicianId);
     const fault = faultCodes.find(f => f.code === form.faultCode);
 
-    setSubmitted(prev => [{
-      id: `WO-2026-${String(50 + prev.length).padStart(4, '0')}`,
+    const newOrder = {
+      id: `WO-2026-${String(50 + orders.length).padStart(4, '0')}`,
       machineId: form.machineId,
       machineName: machine?.name || form.machineId,
       faultCode: form.faultCode,
@@ -92,12 +179,19 @@ export default function WorkOrders() {
       priority: form.priority,
       estimatedDowntime: form.estimatedDowntime,
       description: form.description,
+      status: 'open',
       timestamp: new Date().toISOString(),
-    }, ...prev]);
+      source: 'user',
+    };
 
+    persist([newOrder, ...orders]);
     setForm(initialForm);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+    setToast('Work order created successfully.');
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleCancel = (id) => {
+    persist(orders.map(o => o.id === id ? { ...o, status: 'cancelled' } : o));
   };
 
   const handleReset = () => {
@@ -107,15 +201,159 @@ export default function WorkOrders() {
 
   const selectedMachine = machines.find(m => m.id === form.machineId);
 
+  // Partition orders
+  const activeOrders = orders.filter(o => o.status === 'open' || o.status === 'in-progress');
+  const historyOrders = orders.filter(o => o.status === 'completed' || o.status === 'cancelled');
+
+  // Also pull completed from maintenanceHistory that aren't already tracked
+  const trackedIds = new Set(orders.map(o => o.id));
+  const extraHistory = maintenanceHistory
+    .filter(h => h.status === 'completed' && !trackedIds.has(h.workOrderId))
+    .map(h => ({
+      id: h.workOrderId,
+      machineId: h.machineId,
+      machineName: h.machineName,
+      faultCode: h.faultCode,
+      faultDesc: faultCodes.find(f => f.code === h.faultCode)?.description || '',
+      technician: h.technician,
+      priority: 'medium',
+      estimatedDowntime: h.downtime ?? '—',
+      description: h.notes || '',
+      status: h.status,
+      timestamp: new Date(h.dateOpened).toISOString(),
+      source: 'history',
+    }));
+  const allHistory = [...historyOrders, ...extraHistory];
+
+  // Machines with active work orders
+  const activeMachineIds = [...new Set(activeOrders.map(o => o.machineId))];
+  const connectedMachines = machines.filter(m => activeMachineIds.includes(m.id));
+
   return (
     <div>
-      <PageHeader title="Work Order Entry" subtitle="Create maintenance work orders with validated fault assignments" />
+      <PageHeader title="Work Order Entry" subtitle="Create and manage maintenance work orders" />
 
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 20, right: 20, zIndex: 9999,
+          padding: '10px 18px', borderRadius: 6,
+          background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)',
+          display: 'flex', alignItems: 'center', gap: 8,
+          color: '#4ade80', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+          animation: 'slideIn 0.3s ease',
+        }}>
+          <CheckCircle2 size={16} /> {toast}
+        </div>
+      )}
+
+      {/* Active work orders — prominent at top */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{
+          fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4ade80',
+          marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1,
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <Activity size={14} /> Active Work Orders ({activeOrders.length})
+        </div>
+
+        {activeOrders.length === 0 ? (
+          <Card>
+            <div style={{
+              textAlign: 'center', padding: 20, color: '#475569',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+            }}>
+              No active work orders.
+            </div>
+          </Card>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: 10,
+          }}>
+            {activeOrders.map(wo => (
+              <Card key={wo.id} style={{
+                borderLeft: `3px solid ${priorityColor(wo.priority)}`,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: '#4ade80' }}>
+                    {wo.id}
+                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <WOStatusBadge status={wo.status} />
+                    <span style={{
+                      fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
+                      padding: '2px 6px', borderRadius: 3,
+                      background: `${priorityColor(wo.priority)}20`,
+                      color: priorityColor(wo.priority),
+                      textTransform: 'uppercase',
+                    }}>{wo.priority}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>
+                  {wo.machineId} — {wo.machineName}
+                </div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  {wo.faultCode}: {wo.faultDesc}
+                </div>
+                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+                  Technician: {wo.technician} &nbsp;|&nbsp; Est. downtime: {wo.estimatedDowntime}h
+                </div>
+                <div style={{ fontSize: 11, color: '#475569', marginBottom: 8, fontStyle: 'italic' }}>
+                  {wo.description.length > 120 ? wo.description.slice(0, 120) + '...' : wo.description}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => handleCancel(wo.id)}
+                    style={styles.btnCancel}
+                  >
+                    <XCircle size={12} /> Cancel
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Connected machines strip */}
+      {connectedMachines.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{
+            fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#64748b',
+            marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1,
+          }}>
+            <Wrench size={11} style={{ verticalAlign: -2, marginRight: 4 }} />
+            Machines with Active Work Orders
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {connectedMachines.map(m => (
+              <div key={m.id} style={{
+                padding: '6px 12px', borderRadius: 6,
+                background: '#0d1117', border: '1px solid #1e293b',
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span style={{ color: '#e2e8f0' }}>{m.id}</span>
+                <span style={{ color: '#64748b' }}>{m.name}</span>
+                <StatusBadge status={m.status} size="sm" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Two-column: Form (left) + History (right) */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        {/* Form */}
+        {/* Form — always visible */}
         <div>
           <Card glow>
-            <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4ade80', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{
+              fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4ade80',
+              marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1,
+            }}>
               <ClipboardList size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
               New Work Order
             </div>
@@ -216,56 +454,51 @@ export default function WorkOrders() {
               </div>
             </div>
           </Card>
-
-          {/* Success toast */}
-          {showSuccess && (
-            <div style={{
-              marginTop: 12, padding: '10px 14px', borderRadius: 6,
-              background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)',
-              display: 'flex', alignItems: 'center', gap: 8,
-              color: '#4ade80', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
-              animation: 'slideIn 0.3s ease',
-            }}>
-              <CheckCircle2 size={16} /> Work order created successfully.
-            </div>
-          )}
         </div>
 
-        {/* Submitted orders */}
+        {/* Work Order History */}
         <div>
-          <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Recently Submitted ({submitted.length})
+          <div style={{
+            fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#64748b',
+            marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1,
+          }}>
+            Work Order History ({allHistory.length})
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', paddingRight: 4 }}>
-            {submitted.length === 0 ? (
+          <div style={{
+            display: 'flex', flexDirection: 'column', gap: 8,
+            maxHeight: 'calc(100vh - 200px)', overflowY: 'auto', paddingRight: 4,
+          }}>
+            {allHistory.length === 0 ? (
               <div style={{
                 textAlign: 'center', padding: 48, color: '#475569',
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
               }}>
                 <ClipboardList size={28} style={{ marginBottom: 8, opacity: 0.4 }} />
-                <div>No work orders submitted this session.</div>
-                <div style={{ fontSize: 10, marginTop: 4, color: '#374151' }}>Submitted orders will appear here.</div>
+                <div>No completed or cancelled work orders.</div>
               </div>
             ) : (
-              submitted.map(wo => (
+              allHistory.map(wo => (
                 <Card key={wo.id} style={{
-                  borderLeft: `3px solid ${wo.priority === 'critical' ? '#ef4444' : wo.priority === 'high' ? '#f59e0b' : '#22c55e'}`,
-                  animation: 'slideIn 0.2s ease',
+                  borderLeft: `3px solid ${wo.status === 'cancelled' ? '#ef4444' : '#22c55e'}`,
+                  opacity: wo.status === 'cancelled' ? 0.7 : 1,
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: '#4ade80' }}>{wo.id}</span>
-                    <span style={{
-                      fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
-                      padding: '2px 6px', borderRadius: 3,
-                      background: wo.priority === 'critical' ? '#ef444420' : wo.priority === 'high' ? '#f59e0b20' : '#22c55e20',
-                      color: wo.priority === 'critical' ? '#f87171' : wo.priority === 'high' ? '#fbbf24' : '#4ade80',
-                      textTransform: 'uppercase',
-                    }}>{wo.priority}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>
+                      {wo.id}
+                    </span>
+                    <WOStatusBadge status={wo.status} />
                   </div>
-                  <div style={{ fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>{wo.machineId} — {wo.machineName}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{wo.faultCode}: {wo.faultDesc}</div>
+                  <div style={{ fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>
+                    {wo.machineId} — {wo.machineName}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                    {wo.faultCode}: {wo.faultDesc}
+                  </div>
                   <div style={{ fontSize: 11, color: '#64748b' }}>
-                    Technician: {wo.technician} &nbsp;|&nbsp; Est. downtime: {wo.estimatedDowntime}h
+                    Technician: {wo.technician}
+                    {wo.estimatedDowntime && wo.estimatedDowntime !== '—'
+                      ? ` | Downtime: ${wo.estimatedDowntime}h`
+                      : ''}
                   </div>
                 </Card>
               ))
@@ -300,7 +533,7 @@ const styles = {
     transition: 'border 0.15s',
   },
   inputError: {
-    borderColor: '#ef4444',
+    border: '1px solid #ef4444',
     boxShadow: '0 0 0 1px rgba(239,68,68,0.2)',
   },
   errorText: {
@@ -341,5 +574,22 @@ const styles = {
     fontWeight: 500,
     cursor: 'pointer',
     transition: 'all 0.15s',
+  },
+  btnCancel: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '5px 12px',
+    borderRadius: 5,
+    border: '1px solid rgba(239,68,68,0.4)',
+    background: 'rgba(239,68,68,0.1)',
+    color: '#f87171',
+    fontSize: 11,
+    fontFamily: "'JetBrains Mono', monospace",
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 };

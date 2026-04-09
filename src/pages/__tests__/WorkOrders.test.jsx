@@ -69,8 +69,9 @@ describe('WorkOrders', () => {
     expect(downtimeInput).toHaveValue(null);
   });
 
-  it('shows empty state for submitted orders', () => {
+  it('shows existing in-progress work order from mock data', () => {
     renderWithRouter(<WorkOrders />);
-    expect(screen.getByText('No work orders submitted this session.')).toBeInTheDocument();
+    expect(screen.getByText('WO-2026-0039')).toBeInTheDocument();
+    expect(screen.getAllByText(/Conveyor Foxtrot/).length).toBeGreaterThan(0);
   });
 });
