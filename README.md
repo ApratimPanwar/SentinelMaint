@@ -1,7 +1,11 @@
-# React + Vite
+Classroom project for Human Machine Interaction by Prof.Pradipta Biswas , at Department of Design and Manufacturing , Indian Insistute of Science , Bangalore.
 
+SentinelMaint is a predictive Maintenance Console with IOT / Industry 4.0 Application in mind , its optimized currently to support small to medium workshops , factories or makerspaces. You can connect your machines on the internet , monitor and schdule them as per your needs if the API of that machine allows it. 
+
+
+Setup info for Real-world Usescase:
+ # React + Vite
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
