@@ -15,8 +15,8 @@ import PageHeader from '../components/PageHeader';
 const mono = "'JetBrains Mono', monospace";
 
 const chartTooltipStyle = {
-  background: '#131920',
-  border: '1px solid #1e293b',
+  background: 'var(--bg-card)',
+  border: '1px solid var(--border-primary)',
   borderRadius: 6,
   fontSize: 11,
   fontFamily: mono,
@@ -24,7 +24,7 @@ const chartTooltipStyle = {
 
 const labelStyle = {
   fontSize: 11,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   fontFamily: mono,
   textTransform: 'uppercase',
   letterSpacing: 1,
@@ -221,16 +221,16 @@ export default function Analytics() {
                 <kpi.icon size={18} color={kpi.color} />
               </div>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: mono, color: '#e2e8f0' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, fontFamily: mono, color: 'var(--text-primary)' }}>
                   {kpi.value}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: mono }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: mono }}>
                     {kpi.label}
                   </span>
                   <span style={{
                     fontSize: 10, fontFamily: mono,
-                    color: kpi.deltaUp ? '#4ade80' : '#f87171',
+                    color: kpi.deltaUp ? 'var(--green-500)' : '#f87171',
                   }}>
                     {kpi.deltaUp ? <TrendingUp size={10} style={{ verticalAlign: -1 }} /> : <TrendingDown size={10} style={{ verticalAlign: -1 }} />}
                     {' '}{kpi.delta}
@@ -252,10 +252,10 @@ export default function Analytics() {
           <div style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={mtbfData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} />
-                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} width={40} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} width={40} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" />
+                <XAxis dataKey="month" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} />
+                <YAxis yAxisId="left" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} width={40} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} width={40} />
                 <Tooltip contentStyle={chartTooltipStyle} />
                 <defs>
                   <linearGradient id="mtbfGrad" x1="0" y1="0" x2="0" y2="1">
@@ -263,8 +263,8 @@ export default function Analytics() {
                     <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <Area yAxisId="left" type="monotone" dataKey="mtbf" stroke="#22c55e" strokeWidth={2} fill="url(#mtbfGrad)" dot={{ r: 3, fill: '#22c55e', stroke: '#0a0e14', strokeWidth: 2 }} name="MTBF (hrs)" />
-                <Line yAxisId="right" type="monotone" dataKey="mttr" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6', stroke: '#0a0e14', strokeWidth: 2 }} name="MTTR (hrs)" />
+                <Area yAxisId="left" type="monotone" dataKey="mtbf" stroke="#22c55e" strokeWidth={2} fill="url(#mtbfGrad)" dot={{ r: 3, fill: '#22c55e', stroke: 'var(--bg-primary)', strokeWidth: 2 }} name="MTBF (hrs)" />
+                <Line yAxisId="right" type="monotone" dataKey="mttr" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6', stroke: 'var(--bg-primary)', strokeWidth: 2 }} name="MTTR (hrs)" />
                 <Bar yAxisId="right" dataKey="failures" fill="rgba(239,68,68,0.3)" radius={[3, 3, 0, 0]} name="Failures" barSize={20} />
               </ComposedChart>
             </ResponsiveContainer>
@@ -277,7 +277,7 @@ export default function Analytics() {
             ].map(l => (
               <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 10, height: 3, background: l.color, borderRadius: 2 }} />
-                <span style={{ fontSize: 9, color: '#64748b', fontFamily: mono }}>{l.label}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: mono }}>{l.label}</span>
               </div>
             ))}
           </div>
@@ -292,10 +292,10 @@ export default function Analytics() {
             {computed.finalFailureDist.map(f => (
               <div key={f.type}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: '#94a3b8' }}>{f.type}</span>
-                  <span style={{ fontSize: 11, fontFamily: mono, color: '#e2e8f0' }}>{f.count} ({f.pct}%)</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{f.type}</span>
+                  <span style={{ fontSize: 11, fontFamily: mono, color: 'var(--text-primary)' }}>{f.count} ({f.pct}%)</span>
                 </div>
-                <div style={{ width: '100%', height: 6, background: '#1e293b', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: 6, background: 'var(--border-primary)', borderRadius: 3, overflow: 'hidden' }}>
                   <div style={{
                     width: `${f.pct}%`,
                     height: '100%',
@@ -316,15 +316,15 @@ export default function Analytics() {
         {/* Machine Health Overview */}
         <Card>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, ...labelStyle }}>
-            <Activity size={13} color="#64748b" />
+            <Activity size={13} color="var(--text-muted)" />
             Machine Health Overview
           </div>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={healthData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: mono }} axisLine={{ stroke: '#1e293b' }} tickLine={false} width={70} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-secondary)', fontFamily: mono }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} width={70} />
                 <Tooltip
                   contentStyle={chartTooltipStyle}
                   formatter={(value, name, props) => [`${value}%`, props.payload.fullName]}
@@ -345,7 +345,7 @@ export default function Analytics() {
             ].map(l => (
               <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: l.color, opacity: 0.75 }} />
-                <span style={{ fontSize: 9, color: '#64748b', fontFamily: mono }}>{l.label}</span>
+                <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: mono }}>{l.label}</span>
               </div>
             ))}
           </div>
@@ -359,9 +359,9 @@ export default function Analytics() {
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={computed.computedDowntime} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: mono }} axisLine={{ stroke: '#1e293b' }} tickLine={false} width={70} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-primary)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-secondary)', fontFamily: mono }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} width={70} />
                 <Tooltip contentStyle={chartTooltipStyle} />
                 <Bar dataKey="hours" radius={[0, 4, 4, 0]} name="Downtime (hrs)" barSize={14}>
                   {computed.computedDowntime.map((entry, i) => (
@@ -404,11 +404,11 @@ export default function Analytics() {
           ].map((insight, i) => (
             <div key={i} style={{
               padding: '10px 12px', borderRadius: 6,
-              background: '#0d1117', border: '1px solid #1e293b',
+              background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
               borderLeft: `3px solid ${insight.severity === 'critical' ? '#ef4444' : insight.severity === 'warning' ? '#f59e0b' : '#22c55e'}`,
             }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0', marginBottom: 3 }}>{insight.title}</div>
-              <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.5 }}>{insight.desc}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 3 }}>{insight.title}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{insight.desc}</div>
             </div>
           ))}
         </div>

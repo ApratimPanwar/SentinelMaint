@@ -357,3 +357,13 @@ export const failureDistribution = [
   { type: 'Belt/Chain', count: 3, pct: 10 },
   { type: 'Other', count: 2, pct: 7 },
 ];
+
+// ── Users (Auth) ──
+export const users = [
+  { id: 'T-101', name: 'James Kowalski', role: 'technician', specialty: 'CNC Systems', shift: 'Day', email: 'j.kowalski@sentinel.io', password: 'demo', avatar: 'JK' },
+  { id: 'T-102', name: 'Maria Santos', role: 'technician', specialty: 'Hydraulics', shift: 'Day', email: 'm.santos@sentinel.io', password: 'demo', avatar: 'MS' },
+  { id: 'T-103', name: 'Raj Patel', role: 'technician', specialty: 'Electrical', shift: 'Night', email: 'r.patel@sentinel.io', password: 'demo', avatar: 'RP' },
+  { id: 'T-104', name: 'Elena Volkova', role: 'technician', specialty: 'Robotics', shift: 'Day', email: 'e.volkova@sentinel.io', password: 'demo', avatar: 'EV' },
+  { id: 'T-105', name: 'David Chen', role: 'technician', specialty: 'General', shift: 'Night', email: 'd.chen@sentinel.io', password: 'demo', avatar: 'DC' },
+  { id: 'A-001', name: 'Admin', role: 'admin', specialty: 'All Systems', shift: 'All', email: 'admin@sentinel.io', password: 'admin', avatar: 'AD' },
+];

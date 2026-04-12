@@ -2,7 +2,7 @@ export default function HealthBar({ value, height = 6 }) {
   const color =
     value >= 80 ? '#22c55e' :
     value >= 50 ? '#f59e0b' :
-    value > 0  ? '#ef4444' : '#374151';
+    value > 0  ? '#ef4444' : 'var(--text-muted)';
   const glow =
     value >= 80 ? 'rgba(34,197,94,0.3)' :
     value >= 50 ? 'rgba(245,158,11,0.3)' :
@@ -13,7 +13,7 @@ export default function HealthBar({ value, height = 6 }) {
       style={{
         width: '100%',
         height,
-        background: '#1e293b',
+        background: 'var(--border-primary)',
         borderRadius: height / 2,
         overflow: 'hidden',
         position: 'relative',

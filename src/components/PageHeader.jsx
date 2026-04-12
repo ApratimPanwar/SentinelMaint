@@ -6,13 +6,13 @@ export default function PageHeader({ title, subtitle, children }) {
       justifyContent: 'space-between',
       marginBottom: 24,
       paddingBottom: 16,
-      borderBottom: '1px solid #1e293b',
+      borderBottom: '1px solid var(--border-primary)',
     }}>
       <div>
         <h1 style={{
           fontSize: 22,
           fontWeight: 700,
-          color: '#e2e8f0',
+          color: 'var(--text-primary)',
           fontFamily: "'JetBrains Mono', monospace",
         }}>
           {title}
@@ -20,7 +20,7 @@ export default function PageHeader({ title, subtitle, children }) {
         {subtitle && (
           <p style={{
             fontSize: 12,
-            color: '#64748b',
+            color: 'var(--text-muted)',
             fontFamily: "'JetBrains Mono', monospace",
             marginTop: 4,
           }}>

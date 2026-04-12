@@ -31,7 +31,7 @@ describe('HealthBar', () => {
     const { container } = render(<HealthBar value={0} />);
     const bar = container.firstChild.firstChild;
     expect(bar.style.width).toBe('0%');
-    expect(bar.style.background).toMatch(/rgb\(55,?\s*65,?\s*81\)/);
+    expect(bar.style.background).toBe('var(--text-muted)');
   });
 
   it('accepts custom height', () => {

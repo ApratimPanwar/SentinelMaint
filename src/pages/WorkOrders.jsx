@@ -7,6 +7,7 @@ import { machines, faultCodes, technicians, maintenanceHistory } from '../data/m
 import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
+import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'sentinelMaint_workOrders';
 
@@ -131,7 +132,12 @@ function priorityColor(p) {
 }
 
 export default function WorkOrders() {
-  const [form, setForm] = useState(initialForm);
+  const { user } = useAuth();
+
+  // Auto-fill technician if logged-in user is a technician
+  const userTechId = user?.role === 'technician' ? user.id : '';
+
+  const [form, setForm] = useState({ ...initialForm, technicianId: userTechId });
   const [errors, setErrors] = useState({});
   const [orders, setOrders] = useState([]);
   const [toast, setToast] = useState(null);
@@ -182,10 +188,11 @@ export default function WorkOrders() {
       status: 'open',
       timestamp: new Date().toISOString(),
       source: 'user',
+      createdBy: user?.name || 'Unknown',
     };
 
     persist([newOrder, ...orders]);
-    setForm(initialForm);
+    setForm({ ...initialForm, technicianId: userTechId });
     setToast('Work order created successfully.');
     setTimeout(() => setToast(null), 4000);
   };
@@ -195,7 +202,7 @@ export default function WorkOrders() {
   };
 
   const handleReset = () => {
-    setForm(initialForm);
+    setForm({ ...initialForm, technicianId: userTechId });
     setErrors({});
   };
 
@@ -240,7 +247,7 @@ export default function WorkOrders() {
           padding: '10px 18px', borderRadius: 6,
           background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)',
           display: 'flex', alignItems: 'center', gap: 8,
-          color: '#4ade80', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
+          color: 'var(--green-500)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
           boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
           animation: 'slideIn 0.3s ease',
         }}>
@@ -251,7 +258,7 @@ export default function WorkOrders() {
       {/* Active work orders — prominent at top */}
       <div style={{ marginBottom: 24 }}>
         <div style={{
-          fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4ade80',
+          fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: 'var(--green-500)',
           marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1,
           display: 'flex', alignItems: 'center', gap: 6,
         }}>
@@ -261,7 +268,7 @@ export default function WorkOrders() {
         {activeOrders.length === 0 ? (
           <Card>
             <div style={{
-              textAlign: 'center', padding: 20, color: '#475569',
+              textAlign: 'center', padding: 20, color: 'var(--text-muted)',
               fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
             }}>
               No active work orders.
@@ -278,7 +285,7 @@ export default function WorkOrders() {
                 borderLeft: `3px solid ${priorityColor(wo.priority)}`,
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: '#4ade80' }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: 'var(--green-500)' }}>
                     {wo.id}
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -292,16 +299,16 @@ export default function WorkOrders() {
                     }}>{wo.priority}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 4 }}>
                   {wo.machineId} — {wo.machineName}
                 </div>
-                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
                   {wo.faultCode}: {wo.faultDesc}
                 </div>
-                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
                   Technician: {wo.technician} &nbsp;|&nbsp; Est. downtime: {wo.estimatedDowntime}h
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginBottom: 8, fontStyle: 'italic' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8, fontStyle: 'italic' }}>
                   {wo.description.length > 120 ? wo.description.slice(0, 120) + '...' : wo.description}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -322,7 +329,7 @@ export default function WorkOrders() {
       {connectedMachines.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{
-            fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#64748b',
+            fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)',
             marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1,
           }}>
             <Wrench size={11} style={{ verticalAlign: -2, marginRight: 4 }} />
@@ -332,12 +339,12 @@ export default function WorkOrders() {
             {connectedMachines.map(m => (
               <div key={m.id} style={{
                 padding: '6px 12px', borderRadius: 6,
-                background: '#0d1117', border: '1px solid #1e293b',
+                background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)',
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                <span style={{ color: '#e2e8f0' }}>{m.id}</span>
-                <span style={{ color: '#64748b' }}>{m.name}</span>
+                <span style={{ color: 'var(--text-primary)' }}>{m.id}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{m.name}</span>
                 <StatusBadge status={m.status} size="sm" />
               </div>
             ))}
@@ -351,7 +358,7 @@ export default function WorkOrders() {
         <div>
           <Card glow>
             <div style={{
-              fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#4ade80',
+              fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: 'var(--green-500)',
               marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1,
             }}>
               <ClipboardList size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
@@ -430,15 +437,15 @@ export default function WorkOrders() {
               {/* Machine preview */}
               {selectedMachine && (
                 <div style={{
-                  background: '#0d1117', borderRadius: 6, padding: 10,
-                  border: '1px solid #1e293b', fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
+                  background: 'var(--bg-secondary)', borderRadius: 6, padding: 10,
+                  border: '1px solid var(--border-primary)', fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
                 }}>
-                  <div style={{ color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontSize: 9 }}>Machine Info</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, color: '#94a3b8' }}>
-                    <span>Type: <span style={{ color: '#e2e8f0' }}>{selectedMachine.type}</span></span>
-                    <span>Location: <span style={{ color: '#e2e8f0' }}>{selectedMachine.location}</span></span>
+                  <div style={{ color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1, fontSize: 9 }}>Machine Info</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, color: 'var(--text-secondary)' }}>
+                    <span>Type: <span style={{ color: 'var(--text-primary)' }}>{selectedMachine.type}</span></span>
+                    <span>Location: <span style={{ color: 'var(--text-primary)' }}>{selectedMachine.location}</span></span>
                     <span>Health: <span style={{ color: selectedMachine.health >= 80 ? '#4ade80' : selectedMachine.health >= 50 ? '#fbbf24' : '#f87171' }}>{selectedMachine.health}%</span></span>
-                    <span>Runtime: <span style={{ color: '#e2e8f0' }}>{selectedMachine.runtime}h</span></span>
+                    <span>Runtime: <span style={{ color: 'var(--text-primary)' }}>{selectedMachine.runtime}h</span></span>
                   </div>
                 </div>
               )}
@@ -459,7 +466,7 @@ export default function WorkOrders() {
         {/* Work Order History */}
         <div>
           <div style={{
-            fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: '#64748b',
+            fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-muted)',
             marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1,
           }}>
             Work Order History ({allHistory.length})
@@ -470,7 +477,7 @@ export default function WorkOrders() {
           }}>
             {allHistory.length === 0 ? (
               <div style={{
-                textAlign: 'center', padding: 48, color: '#475569',
+                textAlign: 'center', padding: 48, color: 'var(--text-muted)',
                 fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
               }}>
                 <ClipboardList size={28} style={{ marginBottom: 8, opacity: 0.4 }} />
@@ -483,18 +490,18 @@ export default function WorkOrders() {
                   opacity: wo.status === 'cancelled' ? 0.7 : 1,
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>
                       {wo.id}
                     </span>
                     <WOStatusBadge status={wo.status} />
                   </div>
-                  <div style={{ fontSize: 12, color: '#e2e8f0', marginBottom: 4 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-primary)', marginBottom: 4 }}>
                     {wo.machineId} — {wo.machineName}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
                     {wo.faultCode}: {wo.faultDesc}
                   </div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     Technician: {wo.technician}
                     {wo.estimatedDowntime && wo.estimatedDowntime !== '—'
                       ? ` | Downtime: ${wo.estimatedDowntime}h`
@@ -515,7 +522,7 @@ const styles = {
     display: 'block',
     fontSize: 10,
     fontFamily: "'JetBrains Mono', monospace",
-    color: '#94a3b8',
+    color: 'var(--text-secondary)',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 5,
@@ -524,9 +531,9 @@ const styles = {
     width: '100%',
     padding: '8px 10px',
     borderRadius: 5,
-    border: '1px solid #1e293b',
-    background: '#0d1117',
-    color: '#e2e8f0',
+    border: '1px solid var(--border-primary)',
+    background: 'var(--bg-secondary)',
+    color: 'var(--text-primary)',
     fontSize: 13,
     fontFamily: "'JetBrains Mono', monospace",
     outline: 'none',
@@ -553,7 +560,7 @@ const styles = {
     borderRadius: 6,
     border: '1px solid rgba(34,197,94,0.4)',
     background: 'rgba(34,197,94,0.15)',
-    color: '#4ade80',
+    color: 'var(--green-500)',
     fontSize: 12,
     fontFamily: "'JetBrains Mono', monospace",
     fontWeight: 600,
@@ -566,9 +573,9 @@ const styles = {
     gap: 6,
     padding: '8px 16px',
     borderRadius: 6,
-    border: '1px solid #1e293b',
+    border: '1px solid var(--border-primary)',
     background: 'transparent',
-    color: '#64748b',
+    color: 'var(--text-muted)',
     fontSize: 12,
     fontFamily: "'JetBrains Mono', monospace",
     fontWeight: 500,

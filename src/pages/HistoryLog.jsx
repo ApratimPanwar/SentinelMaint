@@ -4,6 +4,7 @@ import { maintenanceHistory, machines, faultCodes, technicians } from '../data/m
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import PageHeader from '../components/PageHeader';
+import { useAuth } from '../context/AuthContext';
 
 const STORAGE_KEY = 'sentinelmaint_custom_records';
 
@@ -43,10 +44,10 @@ const emptyForm = {
 const inputStyle = {
   width: '100%',
   padding: '7px 10px',
-  background: '#0d1117',
-  border: '1px solid #1e293b',
+  background: 'var(--bg-secondary)',
+  border: '1px solid var(--border-primary)',
   borderRadius: 5,
-  color: '#e2e8f0',
+  color: 'var(--text-primary)',
   fontSize: 12,
   fontFamily: "'JetBrains Mono', monospace",
   outline: 'none',
@@ -55,7 +56,7 @@ const inputStyle = {
 
 const labelStyle = {
   fontSize: 10,
-  color: '#64748b',
+  color: 'var(--text-muted)',
   textTransform: 'uppercase',
   letterSpacing: 1,
   fontFamily: "'JetBrains Mono', monospace",
@@ -64,13 +65,17 @@ const labelStyle = {
 };
 
 export default function HistoryLog() {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [sortBy, setSortBy] = useState('dateOpened');
   const [sortDir, setSortDir] = useState('desc');
   const [customRecords, setCustomRecords] = useState(loadCustomRecords);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm });
+
+  // Auto-fill technician if user is a technician
+  const defaultTechnician = user?.role === 'technician' ? user.name : '';
+  const [form, setForm] = useState({ ...emptyForm, technician: defaultTechnician });
 
   // Persist custom records whenever they change
   useEffect(() => {
@@ -129,14 +134,15 @@ export default function HistoryLog() {
       dateClosed: form.dateClosed || null,
       downtime: form.downtime !== '' ? parseFloat(form.downtime) : null,
       notes: form.notes || '',
+      addedBy: user?.name || 'Unknown',
     };
     setCustomRecords(prev => [...prev, record]);
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, technician: defaultTechnician });
     setShowForm(false);
   };
 
   const handleCancel = () => {
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, technician: defaultTechnician });
     setShowForm(false);
   };
 
@@ -146,25 +152,25 @@ export default function HistoryLog() {
         {/* Search */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
-          background: '#0d1117', border: '1px solid #1e293b', borderRadius: 6,
+          background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 6,
           padding: '5px 10px',
         }}>
-          <Search size={14} color="#64748b" />
+          <Search size={14} color="var(--text-muted)" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search orders..."
             style={{
               background: 'transparent', border: 'none', outline: 'none',
-              color: '#e2e8f0', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
+              color: 'var(--text-primary)', fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
               width: 150,
             }}
           />
         </div>
         {/* Type filter */}
         <div style={{
-          display: 'flex', gap: 3, background: '#0d1117', borderRadius: 6,
-          border: '1px solid #1e293b', padding: 3,
+          display: 'flex', gap: 3, background: 'var(--bg-secondary)', borderRadius: 6,
+          border: '1px solid var(--border-primary)', padding: 3,
         }}>
           {['all', 'preventive', 'corrective'].map(t => (
             <button
@@ -175,7 +181,7 @@ export default function HistoryLog() {
                 fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
                 cursor: 'pointer',
                 background: typeFilter === t ? 'rgba(34,197,94,0.15)' : 'transparent',
-                color: typeFilter === t ? '#4ade80' : '#64748b',
+                color: typeFilter === t ? 'var(--green-500)' : 'var(--text-muted)',
               }}
             >
               {t === 'all' ? 'All' : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -188,7 +194,7 @@ export default function HistoryLog() {
           style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '6px 14px', borderRadius: 6, border: '1px solid #22c55e',
-            background: 'rgba(34,197,94,0.12)', color: '#4ade80',
+            background: 'rgba(34,197,94,0.12)', color: 'var(--green-500)',
             fontSize: 12, fontFamily: "'JetBrains Mono', monospace",
             cursor: 'pointer', fontWeight: 600,
           }}
@@ -202,10 +208,10 @@ export default function HistoryLog() {
       {showForm && (
         <Card style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green-500)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1 }}>
               Add Maintenance Record
             </div>
-            <button onClick={handleCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 2 }}>
+            <button onClick={handleCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2 }}>
               <X size={16} />
             </button>
           </div>
@@ -266,15 +272,15 @@ export default function HistoryLog() {
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
             <button onClick={handleCancel} style={{
-              padding: '6px 16px', borderRadius: 5, border: '1px solid #1e293b',
-              background: 'transparent', color: '#94a3b8', fontSize: 12,
+              padding: '6px 16px', borderRadius: 5, border: '1px solid var(--border-primary)',
+              background: 'transparent', color: 'var(--text-secondary)', fontSize: 12,
               fontFamily: "'JetBrains Mono', monospace", cursor: 'pointer',
             }}>
               Cancel
             </button>
             <button onClick={handleSubmit} style={{
               padding: '6px 16px', borderRadius: 5, border: '1px solid #22c55e',
-              background: 'rgba(34,197,94,0.15)', color: '#4ade80', fontSize: 12,
+              background: 'rgba(34,197,94,0.15)', color: 'var(--green-500)', fontSize: 12,
               fontFamily: "'JetBrains Mono', monospace", cursor: 'pointer', fontWeight: 600,
             }}>
               Submit
@@ -293,10 +299,10 @@ export default function HistoryLog() {
         ].map(s => (
           <Card key={s.label}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <s.icon size={16} color="#4ade80" />
+              <s.icon size={16} color="var(--green-500)" />
               <div>
-                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#e2e8f0' }}>{s.val}</div>
-                <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>{s.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-primary)' }}>{s.val}</div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>{s.label}</div>
               </div>
             </div>
           </Card>
@@ -308,7 +314,7 @@ export default function HistoryLog() {
         <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 320px)', overflowY: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
             <thead>
-              <tr style={{ background: '#0d1117', position: 'sticky', top: 0, zIndex: 1 }}>
+              <tr style={{ background: 'var(--bg-secondary)', position: 'sticky', top: 0, zIndex: 1 }}>
                 {[
                   { key: 'workOrderId', label: 'WO #' },
                   { key: 'machineId', label: 'Machine' },
@@ -328,10 +334,10 @@ export default function HistoryLog() {
                       textAlign: 'left',
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 10,
-                      color: sortBy === col.key ? '#4ade80' : '#64748b',
+                      color: sortBy === col.key ? 'var(--green-500)' : 'var(--text-muted)',
                       textTransform: 'uppercase',
                       letterSpacing: 1,
-                      borderBottom: '1px solid #1e293b',
+                      borderBottom: '1px solid var(--border-primary)',
                       cursor: 'pointer',
                       userSelect: 'none',
                       whiteSpace: 'nowrap',
@@ -350,18 +356,18 @@ export default function HistoryLog() {
                 <tr
                   key={wo.workOrderId}
                   style={{
-                    background: i % 2 === 0 ? '#111820' : '#0f151d',
+                    background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)',
                     transition: 'background 0.15s',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#161d27'}
-                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#111820' : '#0f151d'}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)'}
                 >
                   <td style={cellStyle}>
-                    <span style={{ color: '#4ade80', fontFamily: "'JetBrains Mono', monospace" }}>{wo.workOrderId}</span>
+                    <span style={{ color: 'var(--green-500)', fontFamily: "'JetBrains Mono', monospace" }}>{wo.workOrderId}</span>
                   </td>
                   <td style={cellStyle}>
                     <div style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 500 }}>{wo.machineId}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>{wo.machineName}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{wo.machineName}</div>
                   </td>
                   <td style={{ ...cellStyle, fontFamily: "'JetBrains Mono', monospace" }}>{wo.faultCode}</td>
                   <td style={cellStyle}>
@@ -391,8 +397,8 @@ export default function HistoryLog() {
 
 const cellStyle = {
   padding: '10px 12px',
-  borderBottom: '1px solid #1a2230',
+  borderBottom: '1px solid var(--border-primary)',
   fontSize: 12,
-  color: '#e2e8f0',
+  color: 'var(--text-primary)',
   whiteSpace: 'nowrap',
 };

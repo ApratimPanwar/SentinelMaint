@@ -3,13 +3,13 @@ export default function Card({ children, style, glow, onClick }) {
     <div
       onClick={onClick}
       style={{
-        background: '#111820',
-        border: `1px solid ${glow ? 'rgba(34,197,94,0.25)' : '#1e293b'}`,
+        background: 'var(--bg-card)',
+        border: `1px solid ${glow ? 'var(--border-green-strong)' : 'var(--border-primary)'}`,
         borderRadius: 8,
         padding: 16,
         boxShadow: glow
-          ? '0 0 15px rgba(34,197,94,0.08), 0 0 30px rgba(34,197,94,0.04)'
-          : '0 1px 3px rgba(0,0,0,0.3)',
+          ? 'var(--shadow-green)'
+          : 'var(--shadow-card)',
         transition: 'all 0.2s',
         cursor: onClick ? 'pointer' : 'default',
         ...style,

@@ -12,7 +12,7 @@ describe('Card', () => {
   it('applies glow border when glow prop is true', () => {
     const { container } = render(<Card glow>Glow card</Card>);
     const div = container.firstChild;
-    expect(div.style.border).toMatch(/rgba\(34,?\s*197,?\s*94/);
+    expect(div.style.border).toBe('1px solid var(--border-green-strong)');
   });
 
   it('calls onClick when clicked', async () => {

@@ -11,6 +11,7 @@ import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import HealthBar from '../components/HealthBar';
 import PageHeader from '../components/PageHeader';
+import { useAuth } from '../context/AuthContext';
 
 const timeLabels = ['1h', '2h', '3h', '4h', '5h', '6h', '7h', '8h'];
 
@@ -39,7 +40,6 @@ function getSensorConfig(machine) {
   }
 
   if (t === 'Hydraulic Press') {
-    // rpm is 0 for hydraulic presses; reinterpret vib as vibration, derive pressure from status
     const pressureData = machine.status === 'critical'
       ? [210, 205, 198, 192, 185, 178, 170, 162]
       : machine.status === 'offline'
@@ -54,7 +54,6 @@ function getSensorConfig(machine) {
   }
 
   if (t === 'Robotic Arm') {
-    // Reinterpret rpm as Joint Load % (scale: value/maxRpm*100), vib as Accuracy mm
     const maxRpm = 1500;
     const jointLoadData = machine.sensors.rpm.map(v => Math.round((v / maxRpm) * 100));
     const jointLoadVal = machine.rpm > 0 ? Math.round((machine.rpm / maxRpm) * 100) : 0;
@@ -66,7 +65,6 @@ function getSensorConfig(machine) {
   }
 
   if (t === 'Compressor') {
-    // Reinterpret rpm as PSI
     const psiData = machine.sensors.rpm.map(v => Math.round(v * 0.07));
     const psiVal = Math.round(machine.rpm * 0.07);
     return [
@@ -77,7 +75,6 @@ function getSensorConfig(machine) {
   }
 
   if (t === 'Conveyor') {
-    // rpm -> Belt Speed m/s, vib -> Load kg
     const beltData = machine.sensors.rpm.map(v => +(v * 0.002).toFixed(1));
     const beltVal = +(machine.rpm * 0.002).toFixed(1);
     const loadData = machine.sensors.vib.map(v => Math.round(v * 350));
@@ -90,7 +87,6 @@ function getSensorConfig(machine) {
   }
 
   if (t === 'Welder') {
-    // vib -> Arc Current A (multiply by 50), rpm -> Wire Feed m/min
     const arcData = machine.sensors.vib.map(v => Math.round(v * 50));
     const arcVal = Math.round(machine.vibration * 50);
     const wireData = machine.sensors.rpm.map(v => +(v === 0 ? machine.sensors.vib[machine.sensors.vib.length - 1] * 3.2 : v * 0.004).toFixed(1));
@@ -103,7 +99,6 @@ function getSensorConfig(machine) {
   }
 
   if (t === 'Pump') {
-    // rpm -> Flow Rate L/min
     const flowData = machine.sensors.rpm.map(v => Math.round(v * 0.05));
     const flowVal = Math.round(machine.rpm * 0.05);
     return [
@@ -152,7 +147,7 @@ function LiveClock() {
       fontFamily: "'JetBrains Mono', monospace",
       fontSize: 48,
       fontWeight: 700,
-      color: '#22c55e',
+      color: 'var(--status-ok)',
       textShadow: '0 0 20px rgba(34,197,94,0.6), 0 0 40px rgba(34,197,94,0.3), 0 0 80px rgba(34,197,94,0.15)',
       letterSpacing: 6,
       textAlign: 'center',
@@ -172,11 +167,11 @@ function SensorMini({ data, color, label, value, unit, icon: Icon }) {
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <Icon size={13} color="#64748b" />
-        <span style={{ fontSize: 10, color: '#64748b', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1 }}>{label}</span>
+        <Icon size={13} color="var(--text-muted)" />
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1 }}>{label}</span>
       </div>
       <div style={{ fontSize: 20, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>
-        {value}<span style={{ fontSize: 11, color: '#64748b', marginLeft: 2 }}>{unit}</span>
+        {value}<span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 2 }}>{unit}</span>
       </div>
       <div style={{ height: 40, marginTop: 6 }}>
         <ResponsiveContainer width="100%" height="100%">
@@ -210,16 +205,16 @@ function MachineCard({ machine, selected, onSelect }) {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{machine.id}</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>{machine.name}</div>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{machine.id}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{machine.name}</div>
         </div>
         <StatusBadge status={machine.status} />
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: '#64748b', fontFamily: "'JetBrains Mono', monospace", minWidth: 28 }}>{machine.health}%</span>
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", minWidth: 28 }}>{machine.health}%</span>
         <div style={{ flex: 1 }}><HealthBar value={machine.health} /></div>
       </div>
-      <div style={{ fontSize: 10, color: '#475569', fontFamily: "'JetBrains Mono', monospace", marginTop: 6 }}>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginTop: 6 }}>
         {machine.location} &nbsp;|&nbsp; {machine.runtime}h runtime
       </div>
     </Card>
@@ -229,6 +224,7 @@ function MachineCard({ machine, selected, onSelect }) {
 // ── Dashboard ──
 export default function Dashboard() {
   const [selected, setSelected] = useState(machines[0]);
+  const { user } = useAuth();
 
   const statusCounts = {
     healthy: machines.filter(m => m.status === 'healthy').length,
@@ -246,16 +242,16 @@ export default function Dashboard() {
     : daysToService === 0
       ? 'Today'
       : `${daysToService}d`;
-  const serviceColor = daysToService < 0 ? '#ef4444' : daysToService <= 7 ? '#f59e0b' : '#22c55e';
+  const serviceColor = daysToService < 0 ? '#ef4444' : daysToService <= 7 ? '#f59e0b' : 'var(--status-ok)';
 
   return (
     <div>
-      <PageHeader title="Machine Health Dashboard" subtitle="Real-time fleet monitoring &amp; predictive diagnostics" />
+      <PageHeader title="Machine Health Dashboard" subtitle={`Welcome, ${user?.name || 'Operator'} — Real-time fleet monitoring & predictive diagnostics`} />
 
       {/* Live Clock */}
       <Card style={{ marginBottom: 16, padding: '4px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <Clock size={20} color="#22c55e" style={{ opacity: 0.6 }} />
+          <Clock size={20} color="var(--status-ok)" style={{ opacity: 0.6 }} />
           <LiveClock />
         </div>
       </Card>
@@ -281,7 +277,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: kpi.color }}>
                   {kpi.value}
                 </div>
-                <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>
                   {kpi.label}
                 </div>
               </div>
@@ -294,7 +290,7 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {/* Machine list */}
         <div>
-          <div style={{ fontSize: 12, color: '#64748b', fontFamily: "'JetBrains Mono', monospace", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
             Fleet Status ({machines.length} machines)
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', paddingRight: 4 }}>
@@ -306,14 +302,14 @@ export default function Dashboard() {
 
         {/* Detail panel */}
         <div>
-          <div style={{ fontSize: 12, color: '#64748b', fontFamily: "'JetBrains Mono', monospace", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
             Sensor Detail — {selected.id}
           </div>
           <Card glow style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{selected.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{selected.type} — {selected.location}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{selected.type} — {selected.location}</div>
               </div>
               <StatusBadge status={selected.status} size="md" />
             </div>
@@ -341,11 +337,11 @@ export default function Dashboard() {
                 { label: 'Last Service', val: selected.lastService },
               ].map(item => (
                 <div key={item.label} style={{
-                  background: '#0d1117', borderRadius: 6, padding: '10px 12px',
-                  border: '1px solid #1e293b',
+                  background: 'var(--bg-secondary)', borderRadius: 6, padding: '10px 12px',
+                  border: '1px solid var(--border-primary)',
                 }}>
-                  <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: '#e2e8f0' }}>{item.val}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>{item.label}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-primary)' }}>{item.val}</div>
                 </div>
               ))}
             </div>
@@ -353,27 +349,27 @@ export default function Dashboard() {
             {/* Time to Next Service + Task ETA row */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
               <div style={{
-                background: '#0d1117', borderRadius: 6, padding: '10px 12px',
+                background: 'var(--bg-secondary)', borderRadius: 6, padding: '10px 12px',
                 border: `1px solid ${serviceColor}30`,
               }}>
-                <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
                   Time to Next Service
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: serviceColor }}>
                   {serviceLabel}
                 </div>
-                <div style={{ fontSize: 10, color: '#475569', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
                   {selected.nextService}
                 </div>
               </div>
               <div style={{
-                background: '#0d1117', borderRadius: 6, padding: '10px 12px',
-                border: '1px solid #1e293b',
+                background: 'var(--bg-secondary)', borderRadius: 6, padding: '10px 12px',
+                border: '1px solid var(--border-primary)',
               }}>
-                <div style={{ fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
                   Task ETA
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: selected.status === 'critical' ? '#ef4444' : selected.status === 'warning' ? '#f59e0b' : '#e2e8f0' }}>
+                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: selected.status === 'critical' ? '#ef4444' : selected.status === 'warning' ? '#f59e0b' : 'var(--text-primary)' }}>
                   {getTaskEta(selected)}
                 </div>
               </div>
@@ -382,7 +378,7 @@ export default function Dashboard() {
 
           {/* Trend chart */}
           <Card>
-            <div style={{ fontSize: 11, color: '#64748b', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
               8-Hour Temperature Trend
             </div>
             <div style={{ height: 160 }}>
@@ -394,14 +390,14 @@ export default function Dashboard() {
                       <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="t" tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: '#475569' }} axisLine={{ stroke: '#1e293b' }} tickLine={false} width={35} />
+                  <XAxis dataKey="t" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} width={35} />
                   <Tooltip
-                    contentStyle={{ background: '#131920', border: '1px solid #1e293b', borderRadius: 6, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}
-                    labelStyle={{ color: '#64748b' }}
+                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 6, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}
+                    labelStyle={{ color: 'var(--text-muted)' }}
                     itemStyle={{ color: '#f59e0b' }}
                   />
-                  <Area type="monotone" dataKey="temp" stroke="#f59e0b" strokeWidth={2} fill="url(#tempGrad)" dot={{ r: 3, fill: '#f59e0b', stroke: '#0a0e14', strokeWidth: 2 }} />
+                  <Area type="monotone" dataKey="temp" stroke="#f59e0b" strokeWidth={2} fill="url(#tempGrad)" dot={{ r: 3, fill: '#f59e0b', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>

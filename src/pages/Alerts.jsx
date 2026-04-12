@@ -6,6 +6,7 @@ import { alerts as mockAlerts, machines } from '../data/mockData';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import PageHeader from '../components/PageHeader';
+import { useAuth } from '../context/AuthContext';
 
 const LS_KEYS = {
   dismissed: 'sentinel_dismissed_alerts',
@@ -38,9 +39,9 @@ const inputStyle = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 4,
-  border: '1px solid #1e293b',
-  background: '#0d1117',
-  color: '#e2e8f0',
+  border: '1px solid var(--border-primary)',
+  background: 'var(--bg-secondary)',
+  color: 'var(--text-primary)',
   fontSize: 12,
   fontFamily: "'JetBrains Mono', monospace",
   outline: 'none',
@@ -49,7 +50,7 @@ const inputStyle = {
 
 const labelStyle = {
   fontSize: 11,
-  color: '#94a3b8',
+  color: 'var(--text-secondary)',
   fontFamily: "'JetBrains Mono', monospace",
   marginBottom: 4,
   display: 'block',
@@ -57,6 +58,7 @@ const labelStyle = {
 
 export default function Alerts() {
   const [filter, setFilter] = useState('all');
+  const { user } = useAuth();
 
   const [dismissed, setDismissed] = useState(() =>
     loadJson(LS_KEYS.dismissed, [])
@@ -65,7 +67,8 @@ export default function Alerts() {
   const [acknowledged, setAcknowledged] = useState(() => {
     const saved = loadJson(LS_KEYS.acknowledged, null);
     if (saved) return saved;
-    return Object.fromEntries(mockAlerts.map(a => [a.id, a.acknowledged]));
+    // Seed from mock data — convert boolean `true` to object format
+    return Object.fromEntries(mockAlerts.map(a => [a.id, a.acknowledged ? { by: 'System', at: new Date().toISOString() } : false]));
   });
 
   const [manualAlerts, setManualAlerts] = useState(() =>
@@ -105,7 +108,7 @@ export default function Alerts() {
   });
 
   const handleAck = (id) => {
-    setAcknowledged(prev => ({ ...prev, [id]: true }));
+    setAcknowledged(prev => ({ ...prev, [id]: { by: user?.name || 'Unknown', at: new Date().toISOString() } }));
   };
 
   const handleDismiss = (id) => {
@@ -134,6 +137,15 @@ export default function Alerts() {
     setShowForm(false);
   };
 
+  // Helper to get display name for acknowledgment
+  const getAckLabel = (ackValue) => {
+    if (!ackValue) return null;
+    // Backward compat: if stored value is boolean true, treat as unknown
+    if (ackValue === true) return 'Unknown';
+    if (typeof ackValue === 'object' && ackValue.by) return ackValue.by;
+    return 'Unknown';
+  };
+
   const counts = {
     critical: allAlerts.filter(a => a.severity === 'critical').length,
     warning: allAlerts.filter(a => a.severity === 'warning').length,
@@ -151,7 +163,7 @@ export default function Alerts() {
             padding: '6px 12px', borderRadius: 6,
             border: '1px solid rgba(34,197,94,0.3)',
             background: 'rgba(34,197,94,0.1)',
-            color: '#4ade80', fontSize: 11,
+            color: 'var(--green-500)', fontSize: 11,
             fontFamily: "'JetBrains Mono', monospace",
             fontWeight: 600, cursor: 'pointer',
             transition: 'all 0.15s',
@@ -160,8 +172,8 @@ export default function Alerts() {
           <Plus size={13} /> ADD ALERT
         </button>
         <div style={{
-          display: 'flex', gap: 4, background: '#0d1117', borderRadius: 6,
-          border: '1px solid #1e293b', padding: 3,
+          display: 'flex', gap: 4, background: 'var(--bg-secondary)', borderRadius: 6,
+          border: '1px solid var(--border-primary)', padding: 3,
         }}>
           {[
             { key: 'all', label: 'All' },
@@ -181,7 +193,7 @@ export default function Alerts() {
                 fontWeight: 500,
                 cursor: 'pointer',
                 background: filter === f.key ? 'rgba(34,197,94,0.15)' : 'transparent',
-                color: filter === f.key ? '#4ade80' : '#64748b',
+                color: filter === f.key ? 'var(--green-500)' : 'var(--text-muted)',
                 transition: 'all 0.15s',
               }}
             >
@@ -193,13 +205,13 @@ export default function Alerts() {
 
       {/* Add Alert Form */}
       {showForm && (
-        <Card style={{ marginBottom: 12, borderLeft: '3px solid #4ade80' }}>
+        <Card style={{ marginBottom: 12, borderLeft: '3px solid var(--green-500)' }}>
           <form onSubmit={handleSubmit}>
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12,
             }}>
               <span style={{
-                fontSize: 13, fontWeight: 600, color: '#e2e8f0',
+                fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
                 fontFamily: "'JetBrains Mono', monospace",
               }}>
                 Create Manual Alert
@@ -208,7 +220,7 @@ export default function Alerts() {
                 type="button"
                 onClick={() => setShowForm(false)}
                 style={{
-                  background: 'none', border: 'none', color: '#64748b',
+                  background: 'none', border: 'none', color: 'var(--text-muted)',
                   cursor: 'pointer', padding: 2,
                 }}
               >
@@ -271,7 +283,7 @@ export default function Alerts() {
                 padding: '7px 18px', borderRadius: 4,
                 border: '1px solid rgba(34,197,94,0.4)',
                 background: 'rgba(34,197,94,0.15)',
-                color: '#4ade80', fontSize: 11,
+                color: 'var(--green-500)', fontSize: 11,
                 fontFamily: "'JetBrains Mono', monospace",
                 fontWeight: 600, cursor: 'pointer',
                 transition: 'all 0.15s',
@@ -288,6 +300,7 @@ export default function Alerts() {
           const Icon = severityIcon[alert.severity] || Info;
           const color = severityColor[alert.severity];
           const isAcked = acknowledged[alert.id];
+          const ackName = getAckLabel(isAcked);
 
           return (
             <Card key={alert.id} style={{
@@ -312,7 +325,7 @@ export default function Alerts() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
                     <div>
                       <span style={{ fontWeight: 600, fontSize: 13 }}>{alert.type}</span>
-                      <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>
                         {alert.machineId} — {alert.machineName}
                       </span>
                     </div>
@@ -321,9 +334,9 @@ export default function Alerts() {
                       {isAcked ? (
                         <span style={{
                           display: 'flex', alignItems: 'center', gap: 4,
-                          fontSize: 10, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 10, color: 'var(--green-500)', fontFamily: "'JetBrains Mono', monospace",
                         }}>
-                          <CheckCircle size={12} /> ACK
+                          <CheckCircle size={12} /> ACK{ackName ? ` by ${ackName}` : ''}
                         </span>
                       ) : (
                         <button
@@ -333,7 +346,7 @@ export default function Alerts() {
                             padding: '3px 8px', borderRadius: 4,
                             border: '1px solid rgba(34,197,94,0.3)',
                             background: 'rgba(34,197,94,0.1)',
-                            color: '#4ade80', fontSize: 10,
+                            color: 'var(--green-500)', fontSize: 10,
                             fontFamily: "'JetBrains Mono', monospace",
                             fontWeight: 600, cursor: 'pointer',
                             transition: 'all 0.15s',
@@ -359,9 +372,9 @@ export default function Alerts() {
                       </button>
                     </div>
                   </div>
-                  <p style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.5, margin: 0 }}>{alert.message}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>{alert.message}</p>
                   <div style={{
-                    fontSize: 10, color: '#475569', fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace",
                     marginTop: 6,
                   }}>
                     {new Date(alert.timestamp).toLocaleString('en-US', {
@@ -376,7 +389,7 @@ export default function Alerts() {
 
         {filtered.length === 0 && (
           <div style={{
-            textAlign: 'center', padding: 48, color: '#475569',
+            textAlign: 'center', padding: 48, color: 'var(--text-muted)',
             fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
           }}>
             <BellOff size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
