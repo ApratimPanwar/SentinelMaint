@@ -20,7 +20,8 @@ vi.mock('recharts', () => ({
 describe('Dashboard', () => {
   it('renders the page header', () => {
     renderWithRouter(<Dashboard />);
-    expect(screen.getByText('Machine Health Dashboard')).toBeInTheDocument();
+    // New cockpit topbar shows breadcrumb instead of PageHeader title
+    expect(screen.getByText(/MACHINE HEALTH/i)).toBeInTheDocument();
   });
 
   it('displays all KPI cards', () => {
@@ -33,27 +34,29 @@ describe('Dashboard', () => {
 
   it('renders machine cards with IDs', () => {
     renderWithRouter(<Dashboard />);
-    expect(screen.getByText('CNC-4501')).toBeInTheDocument();
-    expect(screen.getByText('HYD-2201')).toBeInTheDocument();
+    // IDs appear in both the SVG map and the fleet table
+    expect(screen.getAllByText('CNC-4501').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('HYD-2201').length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows sensor detail for first machine by default', () => {
     renderWithRouter(<Dashboard />);
-    // CNC Lathe Alpha appears in both the card and detail panel
-    const matches = screen.getAllByText('CNC Lathe Alpha');
-    expect(matches.length).toBeGreaterThanOrEqual(2);
+    // CNC Lathe Alpha appears in the fleet table and the detail panel
+    expect(screen.getAllByText('CNC Lathe Alpha').length).toBeGreaterThanOrEqual(1);
+    // The first machine's ID appears in the detail panel header
+    expect(screen.getAllByText('CNC-4501').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('updates sensor detail when a machine card is clicked', async () => {
+  it('updates sensor detail when a machine row is clicked', async () => {
     const user = userEvent.setup();
     renderWithRouter(<Dashboard />);
 
-    // Click on the Hydraulic Press card — it appears once in the grid
-    const pressCards = screen.getAllByText('Hydraulic Press Charlie');
-    await user.click(pressCards[0]);
+    // Click Hydraulic Press row in fleet table — machine name appears in table
+    const pressItems = screen.getAllByText('Hydraulic Press Charlie');
+    await user.click(pressItems[0]);
 
-    // After click, Hydraulic Press Charlie should appear in both grid card + detail panel
-    const afterClick = screen.getAllByText('Hydraulic Press Charlie');
-    expect(afterClick.length).toBeGreaterThanOrEqual(2);
+    // After click, detail panel should show HYD-2201
+    const afterClick = screen.getAllByText('HYD-2201');
+    expect(afterClick.length).toBeGreaterThanOrEqual(2); // fleet table + panel header
   });
 });

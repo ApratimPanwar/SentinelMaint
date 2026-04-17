@@ -2,183 +2,159 @@ import { useState, useEffect } from 'react';
 import {
   Thermometer, Waves, Gauge, Clock, AlertTriangle, CheckCircle2,
   XCircle, Activity, Zap, Wind, Droplets, RotateCcw, ArrowRight,
+  Cpu,
 } from 'lucide-react';
 import {
-  LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart,
+  Area, AreaChart, ResponsiveContainer,
 } from 'recharts';
 import { machines, alerts } from '../data/mockData';
-import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import HealthBar from '../components/HealthBar';
-import PageHeader from '../components/PageHeader';
+import WorkshopMap from '../components/WorkshopMap';
 import { useAuth } from '../context/AuthContext';
 
 const timeLabels = ['1h', '2h', '3h', '4h', '5h', '6h', '7h', '8h'];
 
-// ── Machine-type sensor configurations ──
-// Each machine type defines 3 sensors with label, unit, icon, color,
-// and how to derive current value + chart data from the raw machine data.
+// ── Machine-type sensor configurations (preserved from v1) ──
 function getSensorConfig(machine) {
   const t = machine.type;
-
-  // Sensor 1 is always Temperature for every machine type
   const tempSensor = {
-    label: 'Temp',
-    unit: '°C',
-    icon: Thermometer,
-    color: '#f59e0b',
-    value: machine.temperature,
-    data: machine.sensors.temp,
+    label: 'Temp', unit: '°C', icon: Thermometer, color: '#f59e0b',
+    value: machine.temperature, data: machine.sensors.temp,
   };
-
-  if (t === 'CNC Lathe' || t === 'CNC Mill') {
-    return [
-      tempSensor,
-      { label: 'Vibration', unit: 'mm/s', icon: Waves, color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
-      { label: 'RPM', unit: '', icon: Gauge, color: '#3b82f6', value: machine.rpm, data: machine.sensors.rpm },
-    ];
-  }
-
+  if (t === 'CNC Lathe' || t === 'CNC Mill') return [
+    tempSensor,
+    { label: 'Vibration', unit: 'mm/s', icon: Waves,  color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
+    { label: 'RPM',       unit: '',     icon: Gauge,   color: '#3b82f6', value: machine.rpm, data: machine.sensors.rpm },
+  ];
   if (t === 'Hydraulic Press') {
     const pressureData = machine.status === 'critical'
-      ? [210, 205, 198, 192, 185, 178, 170, 162]
-      : machine.status === 'offline'
-        ? [0, 0, 0, 0, 0, 0, 0, 0]
-        : [180, 182, 184, 185, 185, 186, 185, 185];
-    const pressureVal = pressureData[pressureData.length - 1];
+      ? [210,205,198,192,185,178,170,162]
+      : machine.status === 'offline' ? [0,0,0,0,0,0,0,0]
+      : [180,182,184,185,185,186,185,185];
     return [
       tempSensor,
-      { label: 'Vibration', unit: 'mm/s', icon: Waves, color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
-      { label: 'Pressure', unit: 'bar', icon: Gauge, color: '#3b82f6', value: pressureVal, data: pressureData },
+      { label: 'Vibration', unit: 'mm/s', icon: Waves,  color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
+      { label: 'Pressure',  unit: 'bar',  icon: Gauge,   color: '#3b82f6', value: pressureData[pressureData.length-1], data: pressureData },
     ];
   }
-
   if (t === 'Robotic Arm') {
     const maxRpm = 1500;
-    const jointLoadData = machine.sensors.rpm.map(v => Math.round((v / maxRpm) * 100));
-    const jointLoadVal = machine.rpm > 0 ? Math.round((machine.rpm / maxRpm) * 100) : 0;
+    const jointData = machine.sensors.rpm.map(v => Math.round((v/maxRpm)*100));
     return [
       tempSensor,
-      { label: 'Joint Load', unit: '%', icon: RotateCcw, color: '#ef4444', value: jointLoadVal, data: jointLoadData },
-      { label: 'Cycle Count', unit: '', icon: Activity, color: '#3b82f6', value: Math.round(machine.runtime * 12), data: machine.sensors.rpm.map((_, i) => Math.round(machine.runtime * 12 - (7 - i) * 40)) },
+      { label: 'Joint Load',   unit: '%', icon: RotateCcw, color: '#ef4444', value: machine.rpm > 0 ? Math.round((machine.rpm/maxRpm)*100) : 0, data: jointData },
+      { label: 'Cycle Count',  unit: '',  icon: Activity,   color: '#3b82f6', value: Math.round(machine.runtime*12), data: machine.sensors.rpm.map((_,i)=>Math.round(machine.runtime*12-(7-i)*40)) },
     ];
   }
-
   if (t === 'Compressor') {
-    const psiData = machine.sensors.rpm.map(v => Math.round(v * 0.07));
-    const psiVal = Math.round(machine.rpm * 0.07);
+    const psiData = machine.sensors.rpm.map(v => Math.round(v*0.07));
     return [
       tempSensor,
-      { label: 'Vibration', unit: 'mm/s', icon: Waves, color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
-      { label: 'PSI', unit: '', icon: Wind, color: '#3b82f6', value: psiVal, data: psiData },
+      { label: 'Vibration', unit: 'mm/s', icon: Waves,  color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
+      { label: 'PSI',       unit: '',     icon: Wind,   color: '#3b82f6', value: Math.round(machine.rpm*0.07), data: psiData },
     ];
   }
-
   if (t === 'Conveyor') {
-    const beltData = machine.sensors.rpm.map(v => +(v * 0.002).toFixed(1));
-    const beltVal = +(machine.rpm * 0.002).toFixed(1);
-    const loadData = machine.sensors.vib.map(v => Math.round(v * 350));
-    const loadVal = Math.round(machine.vibration * 350);
+    const beltData = machine.sensors.rpm.map(v => +(v*0.002).toFixed(1));
+    const loadData  = machine.sensors.vib.map(v => Math.round(v*350));
     return [
       tempSensor,
-      { label: 'Belt Speed', unit: 'm/s', icon: ArrowRight, color: '#ef4444', value: beltVal, data: beltData },
-      { label: 'Load', unit: 'kg', icon: Gauge, color: '#3b82f6', value: loadVal, data: loadData },
+      { label: 'Belt Speed', unit: 'm/s', icon: ArrowRight, color: '#ef4444', value: +(machine.rpm*0.002).toFixed(1), data: beltData },
+      { label: 'Load',       unit: 'kg',  icon: Gauge,       color: '#3b82f6', value: Math.round(machine.vibration*350), data: loadData },
     ];
   }
-
   if (t === 'Welder') {
-    const arcData = machine.sensors.vib.map(v => Math.round(v * 50));
-    const arcVal = Math.round(machine.vibration * 50);
-    const wireData = machine.sensors.rpm.map(v => +(v === 0 ? machine.sensors.vib[machine.sensors.vib.length - 1] * 3.2 : v * 0.004).toFixed(1));
-    const wireVal = +(machine.vibration * 3.2).toFixed(1);
+    const arcData  = machine.sensors.vib.map(v => Math.round(v*50));
+    const wireData = machine.sensors.rpm.map(v => +(v===0 ? machine.sensors.vib[machine.sensors.vib.length-1]*3.2 : v*0.004).toFixed(1));
     return [
       tempSensor,
-      { label: 'Arc Current', unit: 'A', icon: Zap, color: '#ef4444', value: arcVal, data: arcData },
-      { label: 'Wire Feed', unit: 'm/min', icon: Activity, color: '#3b82f6', value: wireVal, data: wireData },
+      { label: 'Arc Current', unit: 'A',     icon: Zap,      color: '#ef4444', value: Math.round(machine.vibration*50), data: arcData },
+      { label: 'Wire Feed',   unit: 'm/min', icon: Activity, color: '#3b82f6', value: +(machine.vibration*3.2).toFixed(1), data: wireData },
     ];
   }
-
   if (t === 'Pump') {
-    const flowData = machine.sensors.rpm.map(v => Math.round(v * 0.05));
-    const flowVal = Math.round(machine.rpm * 0.05);
+    const flowData = machine.sensors.rpm.map(v => Math.round(v*0.05));
     return [
       tempSensor,
-      { label: 'Vibration', unit: 'mm/s', icon: Waves, color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
-      { label: 'Flow Rate', unit: 'L/min', icon: Droplets, color: '#3b82f6', value: flowVal, data: flowData },
+      { label: 'Vibration',  unit: 'mm/s',  icon: Waves,    color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
+      { label: 'Flow Rate',  unit: 'L/min', icon: Droplets, color: '#3b82f6', value: Math.round(machine.rpm*0.05), data: flowData },
     ];
   }
-
-  // Fallback: generic 3 sensors
   return [
     tempSensor,
     { label: 'Vibration', unit: 'mm/s', icon: Waves, color: '#ef4444', value: machine.vibration, data: machine.sensors.vib },
-    { label: 'RPM', unit: '', icon: Gauge, color: '#3b82f6', value: machine.rpm, data: machine.sensors.rpm },
+    { label: 'RPM',       unit: '',     icon: Gauge,  color: '#3b82f6', value: machine.rpm, data: machine.sensors.rpm },
   ];
 }
 
-// ── Helper: days until a date from today ──
 function daysUntil(dateStr) {
-  const now = new Date();
-  const target = new Date(dateStr);
-  const diff = Math.ceil((target - now) / (1000 * 60 * 60 * 24));
+  const diff = Math.ceil((new Date(dateStr) - new Date()) / (1000*60*60*24));
   return diff;
 }
-
-// ── Estimate task ETA based on status ──
-function getTaskEta(machine) {
-  if (machine.status === 'offline') return 'Awaiting parts';
-  if (machine.status === 'critical') return '< 24 hours';
-  if (machine.status === 'warning') return '3-5 days';
+function getTaskEta(m) {
+  if (m.status === 'offline')   return 'Awaiting parts';
+  if (m.status === 'critical')  return '< 24 hours';
+  if (m.status === 'warning')   return '3–5 days';
   return 'On schedule';
 }
 
-// ── Live Clock Component ──
+// ── Live Clock ──
 function LiveClock() {
   const [time, setTime] = useState(new Date());
-  useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const hh = String(time.getHours()).padStart(2, '0');
-  const mm = String(time.getMinutes()).padStart(2, '0');
-  const ss = String(time.getSeconds()).padStart(2, '0');
+  useEffect(() => { const id = setInterval(()=>setTime(new Date()), 1000); return ()=>clearInterval(id); }, []);
+  const p = n => String(n).padStart(2,'0');
   return (
     <div style={{
       fontFamily: "'JetBrains Mono', monospace",
-      fontSize: 48,
-      fontWeight: 700,
+      fontSize: 28, fontWeight: 700,
       color: 'var(--status-ok)',
-      textShadow: '0 0 20px rgba(34,197,94,0.6), 0 0 40px rgba(34,197,94,0.3), 0 0 80px rgba(34,197,94,0.15)',
-      letterSpacing: 6,
-      textAlign: 'center',
-      padding: '12px 0 4px 0',
+      textShadow: '0 0 12px rgba(34,197,94,0.5), 0 0 24px rgba(34,197,94,0.2)',
+      letterSpacing: 4,
       userSelect: 'none',
+      lineHeight: 1,
     }}>
-      {hh}:{mm}:{ss}
+      {p(time.getHours())}:{p(time.getMinutes())}:{p(time.getSeconds())}
     </div>
   );
 }
 
-// ── Sensor Mini Chart ──
+// ── Sparkline mini chart ──
+function Sparkline({ data, stroke = 'var(--status-ok)', fill, w = 180, h = 36 }) {
+  const min = Math.min(...data), max = Math.max(...data);
+  const rng = max - min || 1;
+  const step = w / (data.length - 1);
+  const pts = data.map((v,i) => `${(i*step).toFixed(1)},${(h - ((v-min)/rng*h)).toFixed(1)}`).join(' ');
+  const area = `0,${h} ${pts} ${w},${h}`;
+  const f = fill || (stroke + '22');
+  return (
+    <svg width={w} height={h} style={{ display:'block', overflow:'visible' }}>
+      <polygon points={area} fill={f} />
+      <polyline points={pts} fill="none" stroke={stroke} strokeWidth="1.4"
+        style={{ filter: `drop-shadow(0 0 2px ${stroke})` }} />
+    </svg>
+  );
+}
+
+// ── Sensor row ──
 function SensorMini({ data, color, label, value, unit, icon: Icon }) {
   const chartData = data.map((v, i) => ({ t: timeLabels[i], v }));
-  // Generate a unique gradient id per label+color to avoid collisions
-  const gradId = `grad-${label.replace(/\s+/g, '')}-${color.replace('#', '')}`;
+  const gradId = `dash-grad-${label.replace(/\s+/g,'')}`;
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-        <Icon size={13} color="var(--text-muted)" />
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1 }}>{label}</span>
+      <div style={{ display:'flex', alignItems:'center', gap:5, marginBottom:4 }}>
+        <Icon size={12} color="var(--text-muted)" />
+        <span style={{ fontSize:9, color:'var(--text-muted)', fontFamily:"'JetBrains Mono',monospace", textTransform:'uppercase', letterSpacing:1 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 20, fontWeight: 700, color, fontFamily: "'JetBrains Mono', monospace" }}>
-        {value}<span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 2 }}>{unit}</span>
+      <div style={{ fontSize:18, fontWeight:700, color, fontFamily:"'JetBrains Mono',monospace", lineHeight:1 }}>
+        {value}<span style={{ fontSize:10, color:'var(--text-muted)', marginLeft:2 }}>{unit}</span>
       </div>
-      <div style={{ height: 40, marginTop: 6 }}>
+      <div style={{ height:36, marginTop:5 }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={chartData}>
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                <stop offset="0%" stopColor={color} stopOpacity={0.25} />
                 <stop offset="100%" stopColor={color} stopOpacity={0} />
               </linearGradient>
             </defs>
@@ -190,219 +166,351 @@ function SensorMini({ data, color, label, value, unit, icon: Icon }) {
   );
 }
 
-// ── Machine Card ──
-function MachineCard({ machine, selected, onSelect }) {
-  const isSelected = selected?.id === machine.id;
+// ── Stat tile ──
+function StatTile({ label, value, color }) {
   return (
-    <Card
-      glow={isSelected}
-      onClick={() => onSelect(machine)}
-      style={{
-        cursor: 'pointer',
-        animation: 'slideIn 0.3s ease',
-        border: isSelected ? '1px solid rgba(34,197,94,0.4)' : undefined,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-        <div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{machine.id}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>{machine.name}</div>
-        </div>
-        <StatusBadge status={machine.status} />
+    <div style={{
+      padding: '8px 10px',
+      background: 'var(--bg-secondary)',
+      border: '1px solid var(--border-primary)',
+      borderRadius: 3,
+    }}>
+      <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--text-muted)', marginBottom:3 }}>{label}</div>
+      <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:14, fontWeight:600, color: color || 'var(--text-primary)' }}>{value}</div>
+    </div>
+  );
+}
+
+// ── KPI card ──
+function KpiCard({ label, value, sub, color, icon: Icon, spark }) {
+  const c = color || 'var(--status-ok)';
+  return (
+    <div className="cockpit-panel" style={{ padding:12, display:'flex', flexDirection:'column', gap:6 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+        {Icon && (
+          <div style={{ width:28, height:28, borderRadius:4, background:`${c}15`, border:`1px solid ${c}30`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Icon size={14} color={c} />
+          </div>
+        )}
+        <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--text-muted)' }}>{label}</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", minWidth: 28 }}>{machine.health}%</span>
-        <div style={{ flex: 1 }}><HealthBar value={machine.health} /></div>
+      <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:26, fontWeight:600, color:c, textShadow:`0 0 8px ${c}55`, lineHeight:1 }}>{value}</div>
+        {sub && <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--text-muted)' }}>{sub}</div>}
       </div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginTop: 6 }}>
-        {machine.location} &nbsp;|&nbsp; {machine.runtime}h runtime
-      </div>
-    </Card>
+      {spark && <Sparkline data={spark} stroke={c} w={160} h={26} />}
+    </div>
   );
 }
 
 // ── Dashboard ──
 export default function Dashboard() {
-  const [selected, setSelected] = useState(machines[0]);
+  const [selectedId, setSelectedId] = useState(machines[0].id);
   const { user } = useAuth();
 
-  const statusCounts = {
-    healthy: machines.filter(m => m.status === 'healthy').length,
-    warning: machines.filter(m => m.status === 'warning').length,
-    critical: machines.filter(m => m.status === 'critical').length,
-    offline: machines.filter(m => m.status === 'offline').length,
-  };
+  const selected = machines.find(m => m.id === selectedId) || machines[0];
+  const sensorConfig  = getSensorConfig(selected);
+  const daysToService = daysUntil(selected.nextService);
+  const serviceLabel  = daysToService < 0 ? `${Math.abs(daysToService)}d overdue` : daysToService === 0 ? 'Today' : `${daysToService}d`;
+  const serviceColor  = daysToService < 0 ? '#ef4444' : daysToService <= 7 ? '#f59e0b' : 'var(--status-ok)';
 
+  const statusCounts = {
+    healthy:  machines.filter(m => m.status === 'healthy').length,
+    warning:  machines.filter(m => m.status === 'warning').length,
+    critical: machines.filter(m => m.status === 'critical').length,
+    offline:  machines.filter(m => m.status === 'offline').length,
+  };
   const critAlerts = alerts.filter(a => a.severity === 'critical' && !a.acknowledged).length;
 
-  const sensorConfig = getSensorConfig(selected);
-  const daysToService = daysUntil(selected.nextService);
-  const serviceLabel = daysToService < 0
-    ? `${Math.abs(daysToService)}d overdue`
-    : daysToService === 0
-      ? 'Today'
-      : `${daysToService}d`;
-  const serviceColor = daysToService < 0 ? '#ef4444' : daysToService <= 7 ? '#f59e0b' : 'var(--status-ok)';
-
   return (
-    <div>
-      <PageHeader title="Machine Health Dashboard" subtitle={`Welcome, ${user?.name || 'Operator'} — Real-time fleet monitoring & predictive diagnostics`} />
+    <div style={{ display:'flex', flexDirection:'column', gap:12, height:'calc(100vh - 48px)' }}>
 
-      {/* Live Clock */}
-      <Card style={{ marginBottom: 16, padding: '4px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <Clock size={20} color="var(--status-ok)" style={{ opacity: 0.6 }} />
+      {/* ── Top bar: breadcrumb + clock + user ── */}
+      <div style={{
+        display:'flex', alignItems:'center', gap:16,
+        padding:'10px 14px',
+        background:'var(--bg-card)',
+        border:'1px solid var(--border-primary)',
+        borderRadius:3,
+        flexShrink: 0,
+        position: 'relative',
+      }}
+        className="cockpit-panel"
+      >
+        <div style={{ flex:1 }}>
+          <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:11, letterSpacing:'0.18em', textTransform:'uppercase', color:'var(--text-muted)', marginBottom:2 }}>
+            SYS / PLANT-07 / MACHINE HEALTH
+          </div>
+          <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:13, color:'var(--text-primary)', fontWeight:600 }}>
+            Welcome, {user?.name || 'Operator'} —&nbsp;
+            <span style={{ color:'var(--text-muted)', fontWeight:400, fontSize:12 }}>Real-time fleet monitoring &amp; predictive diagnostics</span>
+          </div>
+        </div>
+
+        {/* Pill indicators */}
+        <div style={{ display:'flex', gap:8 }}>
+          {[
+            { label:`${statusCounts.healthy} OK`,    c:'var(--status-ok)' },
+            { label:`${statusCounts.warning} WARN`,  c:'var(--status-warn)' },
+            { label:`${statusCounts.critical} CRIT`, c:'var(--status-critical)' },
+          ].map(p => (
+            <div key={p.label} style={{
+              display:'flex', alignItems:'center', gap:5,
+              padding:'3px 8px', borderRadius:2,
+              border:`1px solid ${p.c}40`,
+              background:`${p.c}0d`,
+            }}>
+              <span className="status-dot" style={{ background: p.c, boxShadow:`0 0 4px ${p.c}` }} />
+              <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--text-secondary)', letterSpacing:'0.05em' }}>{p.label}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Live clock */}
+        <div style={{ borderLeft:'1px solid var(--border-primary)', paddingLeft:16 }}>
           <LiveClock />
         </div>
-      </Card>
-
-      {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        {[
-          { label: 'Healthy', value: statusCounts.healthy, icon: CheckCircle2, color: '#22c55e' },
-          { label: 'Warning', value: statusCounts.warning, icon: AlertTriangle, color: '#f59e0b' },
-          { label: 'Critical', value: statusCounts.critical, icon: XCircle, color: '#ef4444' },
-          { label: 'Active Alerts', value: critAlerts, icon: Activity, color: '#3b82f6' },
-        ].map(kpi => (
-          <Card key={kpi.label}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 8,
-                background: `${kpi.color}15`, border: `1px solid ${kpi.color}30`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <kpi.icon size={18} color={kpi.color} />
-              </div>
-              <div>
-                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: kpi.color }}>
-                  {kpi.value}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>
-                  {kpi.label}
-                </div>
-              </div>
-            </div>
-          </Card>
-        ))}
       </div>
 
-      {/* Machine grid + detail panel */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* Machine list */}
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Fleet Status ({machines.length} machines)
+      {/* ── Main grid: left side (flex) + right detail panel ── */}
+      <div style={{ flex:1, display:'flex', gap:12, overflow:'hidden', minHeight:0 }}>
+
+        {/* ── Left: KPI row + Map + Fleet/Risk ── */}
+        <div style={{ flex:1, display:'flex', flexDirection:'column', gap:12, overflow:'hidden', minWidth:0 }}>
+
+          {/* KPI row */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, flexShrink:0 }}>
+            <KpiCard label="Healthy"       value={statusCounts.healthy}  color="#22c55e" icon={CheckCircle2} />
+            <KpiCard label="Warning"       value={statusCounts.warning}  color="#f59e0b" icon={AlertTriangle} sub={`${statusCounts.warning} units`} />
+            <KpiCard label="Critical"      value={statusCounts.critical} color="#ef4444" icon={XCircle}      sub="action required" />
+            <KpiCard label="Active Alerts" value={critAlerts}            color="#3b82f6" icon={Activity}     sub="unacknowledged" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, maxHeight: 'calc(100vh - 400px)', overflowY: 'auto', paddingRight: 4 }}>
-            {machines.map(m => (
-              <MachineCard key={m.id} machine={m} selected={selected} onSelect={setSelected} />
-            ))}
+
+          {/* Workshop Map */}
+          <div className="cockpit-panel" style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', minHeight:220 }}>
+            <div className="panel-hdr">
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span className="status-dot ok" />
+                <span>WORKSHOP MAP · PLANT-07</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--text-muted)', marginLeft:4 }}>Z-7 / FLOOR PLAN</span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--text-muted)' }}>VIEW · FLOOR</span>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--status-ok)', textShadow:'0 0 4px rgba(34,197,94,0.5)' }}>● LIVE</span>
+              </div>
+            </div>
+            <div style={{
+              flex:1,
+              position:'relative',
+              background:'radial-gradient(ellipse at center, rgba(34,197,94,0.03), transparent 65%)',
+              minHeight:0,
+              padding:4,
+            }}>
+              <WorkshopMap
+                machines={machines}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            </div>
+          </div>
+
+          {/* Fleet table + Risk forecast */}
+          <div style={{ display:'grid', gridTemplateColumns:'3fr 1fr', gap:12, flexShrink:0, height:192, overflow:'hidden' }}>
+
+            {/* Fleet table */}
+            <div className="cockpit-panel" style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div className="panel-hdr">
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span className="status-dot ok" />
+                  <span>FLEET · LIVE STATUS</span>
+                  <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--text-muted)' }}>{machines.length} UNITS</span>
+                </div>
+                <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--text-muted)' }}>SORT · RISK</span>
+              </div>
+              <div style={{ flex:1, overflow:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>
+                  <thead>
+                    <tr>
+                      {['ID','NAME','HEALTH','TEMP','VIB','STATUS'].map(h => (
+                        <th key={h} style={{ textAlign:'left', padding:'6px 10px', borderBottom:'1px solid var(--border-primary)', fontFamily:"'Barlow Condensed',sans-serif", fontWeight:600, fontSize:10, letterSpacing:'0.1em', color:'var(--text-muted)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...machines].sort((a,b)=>a.health-b.health).map(m => {
+                      const sel = m.id === selectedId;
+                      return (
+                        <tr key={m.id}
+                          onClick={() => setSelectedId(m.id)}
+                          style={{
+                            cursor:'pointer',
+                            background: sel ? 'rgba(34,197,94,0.06)' : 'transparent',
+                            borderLeft: sel ? '2px solid var(--status-ok)' : '2px solid transparent',
+                          }}
+                        >
+                          <td style={{ padding:'6px 10px', color:'var(--text-primary)', fontWeight:600 }}>{m.id}</td>
+                          <td style={{ padding:'6px 10px', color:'var(--text-secondary)', maxWidth:120, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{m.name}</td>
+                          <td style={{ padding:'6px 10px', color: m.health<50?'#ef4444':m.health<80?'#f59e0b':'var(--status-ok)' }}>{m.health}%</td>
+                          <td style={{ padding:'6px 10px', color:'var(--text-secondary)' }}>{m.temperature}°</td>
+                          <td style={{ padding:'6px 10px', color: m.vibration>5?'#ef4444':m.vibration>3?'#f59e0b':'var(--text-secondary)' }}>{m.vibration.toFixed(1)}</td>
+                          <td style={{ padding:'6px 10px' }}><StatusBadge status={m.status} size="sm" /></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Risk forecast */}
+            <div className="cockpit-panel" style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+              <div className="panel-hdr">
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span className="status-dot warn" />
+                  <span>RISK · 72H</span>
+                </div>
+              </div>
+              <div style={{ flex:1, overflow:'auto', padding:'10px 12px', display:'flex', flexDirection:'column', gap:8 }}>
+                {[...machines]
+                  .filter(m => m.status === 'critical' || m.status === 'warning')
+                  .sort((a,b) => a.health - b.health)
+                  .slice(0,4)
+                  .map(m => {
+                    const d = daysUntil(m.nextService);
+                    const tc = m.status === 'critical' ? '#ef4444' : '#f59e0b';
+                    return (
+                      <div key={m.id}
+                        onClick={() => setSelectedId(m.id)}
+                        style={{ cursor:'pointer', padding:'6px 0', borderBottom:'1px solid var(--border-primary)' }}
+                      >
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--text-primary)', fontWeight:600 }}>{m.id}</span>
+                          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:tc }}>{d<0?`${Math.abs(d)}d OVR`:`${d}d`}</span>
+                        </div>
+                        <div style={{ height:4, background:'rgba(255,255,255,0.06)', borderRadius:1, overflow:'hidden' }}>
+                          <div style={{ height:'100%', width:`${m.health}%`, background:tc, borderRadius:1, boxShadow:`0 0 4px ${tc}` }} />
+                        </div>
+                        <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:9, color:'var(--text-muted)', marginTop:3 }}>{m.health}% health</div>
+                      </div>
+                    );
+                  })}
+                {machines.filter(m=>m.status==='critical'||m.status==='warning').length === 0 && (
+                  <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--status-ok)', textAlign:'center', paddingTop:20 }}>
+                    ✓ All clear
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Detail panel */}
-        <div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Sensor Detail — {selected.id}
+        {/* ── Right: Machine Detail Panel ── */}
+        <div className="cockpit-panel" style={{ width:310, flexShrink:0, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+          <div className="panel-hdr">
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span className="status-dot" style={{
+                background: selected.status==='critical'?'#ef4444':selected.status==='warning'?'#f59e0b':selected.status==='offline'?'#6b7280':'var(--status-ok)',
+                boxShadow: `0 0 5px ${selected.status==='critical'?'#ef4444':selected.status==='warning'?'#f59e0b':'var(--status-ok)'}`,
+              }} />
+              <span>UNIT · {selected.id}</span>
+            </div>
+            <StatusBadge status={selected.status} size="sm" />
           </div>
-          <Card glow style={{ marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>{selected.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{selected.type} — {selected.location}</div>
-              </div>
-              <StatusBadge status={selected.status} size="md" />
+
+          <div style={{ flex:1, overflow:'auto', padding:'12px 14px', display:'flex', flexDirection:'column', gap:12 }}>
+            {/* Machine header */}
+            <div>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:18, letterSpacing:'0.04em', color:'var(--text-primary)', lineHeight:1.2 }}>{selected.name}</div>
+              <div style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:'var(--text-muted)', marginTop:3 }}>{selected.type} · {selected.location}</div>
             </div>
 
-            {/* Machine-specific sensors */}
-            <div style={{ display: 'flex', gap: 20, marginBottom: 16 }}>
-              {sensorConfig.map(sensor => (
-                <SensorMini
-                  key={sensor.label}
-                  data={sensor.data}
-                  color={sensor.color}
-                  label={sensor.label}
-                  value={sensor.value}
-                  unit={sensor.unit}
-                  icon={sensor.icon}
+            {/* Sensor mini charts */}
+            <div style={{ display:'flex', gap:12 }}>
+              {sensorConfig.map(s => (
+                <SensorMini key={s.label} data={s.data} color={s.color} label={s.label} value={s.value} unit={s.unit} icon={s.icon} />
+              ))}
+            </div>
+
+            {/* Vibration sparkline */}
+            <div>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--text-muted)', marginBottom:6 }}>
+                VIBRATION · 8H ROLLING
+              </div>
+              <div style={{
+                padding:8, background:'rgba(0,0,0,0.2)',
+                border:'1px solid var(--border-primary)', borderRadius:3,
+              }}>
+                <Sparkline
+                  data={selected.sensors.vib}
+                  stroke={selected.status==='critical'?'#ef4444':selected.status==='warning'?'#f59e0b':'var(--status-ok)'}
+                  w={260} h={48}
                 />
-              ))}
+              </div>
             </div>
 
-            {/* Info tiles: Health, Runtime, Last Service, Time to Next Service, Task ETA */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-              {[
-                { label: 'Health Score', val: `${selected.health}%` },
-                { label: 'Runtime', val: `${selected.runtime}h` },
-                { label: 'Last Service', val: selected.lastService },
-              ].map(item => (
-                <div key={item.label} style={{
-                  background: 'var(--bg-secondary)', borderRadius: 6, padding: '10px 12px',
-                  border: '1px solid var(--border-primary)',
+            {/* Stat tiles */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <StatTile label="Health Score" value={`${selected.health}%`} color={selected.health<50?'#ef4444':selected.health<80?'#f59e0b':'var(--status-ok)'} />
+              <StatTile label="Runtime" value={`${selected.runtime}h`} />
+              <StatTile label="Last Service" value={selected.lastService} />
+              <StatTile label="Next Service" value={serviceLabel} color={serviceColor} />
+            </div>
+
+            {/* MTBF + Task ETA row */}
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <StatTile label="Task ETA" value={getTaskEta(selected)}
+                color={selected.status==='critical'?'#ef4444':selected.status==='warning'?'#f59e0b':'var(--text-primary)'} />
+              <StatTile label="Temp Peak" value={`${Math.max(...selected.sensors.temp)}°C`}
+                color={Math.max(...selected.sensors.temp) > 85 ? '#ef4444' : Math.max(...selected.sensors.temp) > 65 ? '#f59e0b' : 'var(--status-ok)'} />
+            </div>
+
+            {/* Actions */}
+            <div style={{ marginTop:'auto', display:'flex', flexDirection:'column', gap:8 }}>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--text-muted)', borderTop:'1px dashed var(--border-primary)', paddingTop:10 }}>ACTIONS</div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button style={{
+                  flex:1, padding:'8px 10px',
+                  background:'rgba(34,197,94,0.08)', border:'1px solid rgba(34,197,94,0.35)',
+                  borderRadius:2, color:'var(--status-ok)',
+                  fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:'0.1em',
+                  textTransform:'uppercase', cursor:'pointer',
                 }}>
-                  <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>{item.label}</div>
-                  <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-primary)' }}>{item.val}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Time to Next Service + Task ETA row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-              <div style={{
-                background: 'var(--bg-secondary)', borderRadius: 6, padding: '10px 12px',
-                border: `1px solid ${serviceColor}30`,
-              }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
-                  Time to Next Service
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: serviceColor }}>
-                  {serviceLabel}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
-                  {selected.nextService}
-                </div>
-              </div>
-              <div style={{
-                background: 'var(--bg-secondary)', borderRadius: 6, padding: '10px 12px',
-                border: '1px solid var(--border-primary)',
-              }}>
-                <div style={{ fontSize: 9, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace", marginBottom: 4 }}>
-                  Task ETA
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "'JetBrains Mono', monospace", color: selected.status === 'critical' ? '#ef4444' : selected.status === 'warning' ? '#f59e0b' : 'var(--text-primary)' }}>
-                  {getTaskEta(selected)}
-                </div>
+                  ▸ Work Order
+                </button>
+                <button style={{
+                  padding:'8px 10px',
+                  background:'transparent', border:'1px solid var(--border-primary)',
+                  borderRadius:2, color:'var(--text-secondary)',
+                  fontFamily:"'Barlow Condensed',sans-serif", fontSize:12, letterSpacing:'0.1em',
+                  textTransform:'uppercase', cursor:'pointer',
+                }}>
+                  Ack
+                </button>
               </div>
             </div>
-          </Card>
 
-          {/* Trend chart */}
-          <Card>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
-              8-Hour Temperature Trend
+            {/* Temp trend chart */}
+            <div>
+              <div style={{ fontFamily:"'Barlow Condensed',sans-serif", fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--text-muted)', marginBottom:6 }}>
+                TEMP TREND · 8H
+              </div>
+              <div style={{ height:100 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={selected.sensors.temp.map((v, i) => ({ t: timeLabels[i], temp: v }))}>
+                    <defs>
+                      <linearGradient id="detailTempGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.2} />
+                        <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Area type="monotone" dataKey="temp" stroke="#f59e0b" strokeWidth={1.5} fill="url(#detailTempGrad)" dot={{ r:2, fill:'#f59e0b', stroke:'var(--bg-primary)', strokeWidth:1 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div style={{ height: 160 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={selected.sensors.temp.map((v, i) => ({ t: timeLabels[i], temp: v }))}>
-                  <defs>
-                    <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="t" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={{ stroke: 'var(--border-primary)' }} tickLine={false} width={35} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: 6, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}
-                    labelStyle={{ color: 'var(--text-muted)' }}
-                    itemStyle={{ color: '#f59e0b' }}
-                  />
-                  <Area type="monotone" dataKey="temp" stroke="#f59e0b" strokeWidth={2} fill="url(#tempGrad)" dot={{ r: 3, fill: '#f59e0b', stroke: 'var(--bg-primary)', strokeWidth: 2 }} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
+          </div>
         </div>
+
       </div>
     </div>
   );

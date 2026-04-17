@@ -341,7 +341,7 @@ const styles = {
   main: {
     flex: 1,
     overflow: 'auto',
-    padding: 24,
+    padding: 16,
     background: 'var(--bg-primary)',
   },
 
